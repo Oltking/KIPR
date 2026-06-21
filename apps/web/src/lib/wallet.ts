@@ -17,36 +17,57 @@ export function hasInjectedWallet(): boolean {
   return typeof window !== 'undefined' && !!window.ethereum
 }
 
-/** Add or switch the injected wallet to 0G Galileo testnet. */
+const RPC_REGISTERED_KEY = 'kipr.og.rpc.registered.v1'
+
+const ogChainParams = {
+  chainId: OG_TESTNET.chainIdHex,
+  chainName: OG_TESTNET.name,
+  nativeCurrency: OG_TESTNET.nativeCurrency,
+  rpcUrls: [OG_TESTNET.evmRpc],
+  blockExplorerUrls: [OG_TESTNET.explorer],
+}
+
+/**
+ * Put the wallet on 0G Galileo with the KNOWN-GOOD RPC. The common failure mode is
+ * a wallet that already has 0G saved against a stale/dead RPC (transactions then fail
+ * with "RPC endpoint unavailable") — and wallet_switchEthereumChain alone won't fix
+ * that. So on the first connect we call wallet_addEthereumChain, which registers and
+ * selects our working endpoint; a localStorage guard keeps it to a one-time prompt.
+ */
 async function ensureOgNetwork(provider: BrowserProvider): Promise<void> {
   const eth = window.ethereum
   if (!eth) throw new Error('No injected wallet found.')
   const net = await provider.getNetwork()
-  if (Number(net.chainId) === OG_TESTNET.chainId) return
+  const onChain = Number(net.chainId) === OG_TESTNET.chainId
+  const registered = (() => {
+    try {
+      return localStorage.getItem(RPC_REGISTERED_KEY) === '1'
+    } catch {
+      return false
+    }
+  })()
 
-  try {
-    await eth.request({
-      method: 'wallet_switchEthereumChain',
-      params: [{ chainId: OG_TESTNET.chainIdHex }],
-    })
-  } catch (err) {
-    // 4902 = chain not added yet → add it, then it's selected.
-    const code = (err as { code?: number })?.code
-    if (code === 4902) {
-      await eth.request({
-        method: 'wallet_addEthereumChain',
-        params: [
-          {
-            chainId: OG_TESTNET.chainIdHex,
-            chainName: OG_TESTNET.name,
-            nativeCurrency: OG_TESTNET.nativeCurrency,
-            rpcUrls: [OG_TESTNET.evmRpc],
-            blockExplorerUrls: [OG_TESTNET.explorer],
-          },
-        ],
-      })
-    } else {
-      throw err
+  if (!onChain || !registered) {
+    try {
+      // addEthereumChain both adds the good RPC and switches to the chain.
+      await eth.request({ method: 'wallet_addEthereumChain', params: [ogChainParams] })
+      try {
+        localStorage.setItem(RPC_REGISTERED_KEY, '1')
+      } catch {
+        /* ignore storage errors */
+      }
+      return
+    } catch (err) {
+      if ((err as { code?: number })?.code === 4001) {
+        throw new Error('You rejected the 0G network request in your wallet.')
+      }
+      // Some wallets won't re-add an existing chain — fall back to a plain switch.
+      if (!onChain) {
+        await eth.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: OG_TESTNET.chainIdHex }],
+        })
+      }
     }
   }
 }

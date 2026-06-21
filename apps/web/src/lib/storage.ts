@@ -15,6 +15,24 @@ function makeIndexer(): Indexer {
   return new Indexer(OG_TESTNET.indexerRpc)
 }
 
+/** Turn an opaque wallet/RPC submit failure into actionable guidance. */
+function explainUploadError(raw: unknown): Error {
+  const msg = (raw as { message?: string })?.message ?? String(raw)
+  const code = (raw as { code?: number | string })?.code
+  const looksLikeRpc =
+    code === -32603 ||
+    /endpoint not found or unavailable|RPC submit|could not coalesce|failed to fetch|ECONNREFUSED/i.test(msg)
+  if (looksLikeRpc) {
+    return new Error(
+      `Your wallet couldn't submit the transaction to 0G. This is a wallet RPC problem, not your funds — ` +
+        `MetaMask is using a stale endpoint for the 0G network. Fix it: open MetaMask → Networks → ` +
+        `“0G-Galileo-Testnet” → set the RPC URL to ${OG_TESTNET.evmRpc} (remove any others), then retry. ` +
+        `(The 0G network itself is up.)`,
+    )
+  }
+  return new Error(`upload failed: ${msg}`)
+}
+
 export interface UploadRef {
   rootHash: string
   txHash: string
@@ -28,7 +46,7 @@ export async function uploadBytes(signer: JsonRpcSigner, data: Uint8Array): Prom
   if (treeErr !== null || !tree) throw new Error(`merkleTree failed: ${treeErr ?? 'no tree'}`)
 
   const [res, upErr] = await indexer.upload(mem, OG_TESTNET.evmRpc, signer)
-  if (upErr !== null) throw new Error(`upload failed: ${upErr.message ?? String(upErr)}`)
+  if (upErr !== null) throw explainUploadError(upErr)
   // single result, or fragmented (>4GB) — narrow it.
   const rootHash = 'rootHashes' in res ? res.rootHashes[0] : res.rootHash
   const txHash = 'rootHashes' in res ? res.txHashes[0] : res.txHash

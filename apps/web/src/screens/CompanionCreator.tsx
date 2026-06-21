@@ -25,6 +25,7 @@ import type { Connection } from '../lib/wallet'
 import { persistPersonality, loadPersonality } from '../lib/companion-store'
 import { OG_TESTNET } from '../lib/og'
 import { Dot, type Status } from '../components/Dot'
+import { CompanionOrb } from '../components/CompanionOrb'
 
 // Pinned at creation from a 0G Compute TeeML provider's model. Until the compute
 // ledger is funded we pin the configured default; changing it changes the version.
@@ -113,17 +114,24 @@ export function CompanionCreator({
     }
   }
 
+  const orbState = saveStatus === 'busy' || recoverStatus === 'busy' ? 'thinking' : 'idle'
+
   return (
     <>
+      <section className="intro">
+        <CompanionOrb size={108} state={orbState} />
+        <h2 className="intro-h">{saved ? `Meet ${config.name}` : 'Shape your companion'}</h2>
+        <p className="intro-p">
+          Who it is, how it talks, what it holds to — you decide, and it's yours. Nothing here can be
+          changed behind your back: every detail is sealed under a version only you can move.
+        </p>
+      </section>
+
       <section className="card">
         <div className="card-h">
           <span className="step">1</span>
-          <h2>Create your companion</h2>
+          <h2>Who they are</h2>
         </div>
-        <p className="muted">
-          This is who it is and how it talks. It belongs to you — its personality is content you own,
-          committed by a version hash nobody can change behind your back.
-        </p>
 
         <label className="lbl">Name</label>
         <input className="inp" value={name} onChange={(e) => setName(e.target.value)} />
