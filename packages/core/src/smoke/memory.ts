@@ -14,6 +14,8 @@ import {
   appendMessages,
   loadConversation,
   loadHistory,
+  defaultPersonality,
+  personalityVersion,
   type MemoryMessage,
   type MessageProvenance,
 } from '../index.js'
@@ -28,12 +30,15 @@ async function main() {
   if (pf.balanceWei === 0n) throw new Error('Wallet has 0 0G — fund it before this smoke.')
 
   const companion = ctx.address.toLowerCase()
+  const modelId = ctx.config.computeModelId ?? 'zai-org/GLM-5-FP8'
+  // Derive the version from the live default config so it can never go stale.
+  const pVersion = personalityVersion(defaultPersonality(modelId))
   const prov = (): MessageProvenance => ({
-    modelId: ctx.config.computeModelId ?? 'zai-org/GLM-5-FP8',
+    modelId,
     providerAddr: '0x0000000000000000000000000000000000000000', // real provider filled in P2 compute wiring
     chatId: null,
     teeVerified: null,
-    personalityVersion: '0x1446e563e7ccc9bc851edb7f5cb4a6ef37bc25cf13c5ce15f0eacb6fb9cdd042',
+    personalityVersion: pVersion,
   })
 
   // Turn 1 — user tells the companion something to remember.

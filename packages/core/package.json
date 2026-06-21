@@ -6,7 +6,9 @@
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./personality": "./src/personality.ts",
+    "./companion": "./src/companion.ts"
   },
   "engines": {
     "node": ">=22"

@@ -95,3 +95,40 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 code { background: #0f0e17; padding: 1px 5px; border-radius: 5px; font-size: 12px; }
 
 .ft { text-align: center; color: var(--muted); font-size: 12px; padding-top: 4px; }
+
+/* shell */
+.hd-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+  padding: 7px 12px; font-size: 13px; font-family: ui-monospace, Menlo, monospace;
+}
+.chip-btn { width: auto; padding: 9px 16px; font-size: 14px; border-radius: 999px; }
+.tabs { display: flex; gap: 8px; margin-top: 16px; }
+.tab {
+  width: auto; flex: 1; background: var(--card); color: var(--muted);
+  border: 1px solid var(--line); font-weight: 600; font-size: 14px; padding: 10px;
+}
+.tab.on { background: var(--accent); color: #0f0e17; border-color: var(--accent); }
+
+/* forms */
+.lbl { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin: 12px 0 5px; }
+.ta { resize: vertical; font-family: inherit; line-height: 1.5; }
+.small { font-size: 12px; }
+.hash { color: var(--accent); font-size: 13px; }
+
+/* reveal / preview */
+.reveal { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.reveal summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.pre {
+  white-space: pre-wrap; word-break: break-word; margin: 10px 0 0;
+  background: #0f0e17; border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px; font-size: 12.5px; line-height: 1.55; color: var(--ink);
+}
+
+.okbox { margin-top: 12px; background: rgba(44,182,125,0.1); border: 1px solid var(--ok); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+.okbox p { margin: 0; }
+.gatedlist { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.gatedlist ul { margin: 8px 0 0; padding-left: 2px; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.gatedlist li { font-size: 13px; line-height: 1.5; }
+.gatedlist .badge { margin-right: 6px; }
