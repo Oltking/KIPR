@@ -29,23 +29,15 @@ import {
   type InferenceService,
 } from '../lib/compute'
 import { loadPersonality } from '../lib/companion-store'
+import { conversationHeadKey, type ActiveCompanion } from '../lib/session'
 import { ProvenanceBadge } from '../components/ProvenanceBadge'
 import { CompanionOrb } from '../components/CompanionOrb'
 import { OG_TESTNET } from '../lib/og'
 import type { Status } from '../components/Dot'
 
-export interface ActiveCompanion {
-  ownerAddr: string
-  name: string
-  modelId: string
-  version: string
-  personalityRootHash: string
-}
-
 type ComputeState = 'checking' | 'inactive' | 'active' | 'unavailable'
 
 const now = () => new Date().toISOString()
-export const conversationHeadKey = (ownerAddr: string) => `kipr.conv.head.${ownerAddr}`
 const headKey = (c: ActiveCompanion) => conversationHeadKey(c.ownerAddr)
 
 export function Chat({
@@ -96,6 +88,7 @@ export function Chat({
   const providerRef = useRef<InferenceService | null>(null)
   const systemPromptRef = useRef<string>('')
   const endRef = useRef<HTMLDivElement>(null)
+  const autoLoadedRef = useRef(false)
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -130,6 +123,28 @@ export function Chat({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerKey, companion.personalityRootHash])
+
+  // Continuity: if there's a saved head and we weren't seeded from a restore, pull the
+  // conversation back from 0G once the key is available — "it just remembers".
+  useEffect(() => {
+    if (autoLoadedRef.current) return
+    if (initial?.messages.length) {
+      autoLoadedRef.current = true
+      return
+    }
+    if (!ownerKey || !head) return
+    autoLoadedRef.current = true
+    loadConversation(ownerKey, head)
+      .then((restored) => {
+        if (restored.length) {
+          setMessages(restored)
+          setSavedCount(restored.length)
+        }
+      })
+      .catch(() => {
+        /* keep the greeting if reload fails */
+      })
+  }, [ownerKey, head, initial])
 
   const unsaved = messages.length - savedCount
 

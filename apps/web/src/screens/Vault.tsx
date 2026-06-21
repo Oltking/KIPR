@@ -11,7 +11,7 @@
 import { useRef, useState } from 'react'
 import type { Connection } from '../lib/wallet'
 import { buildExport, downloadJson, parseExport, type KiprExport } from '../lib/export'
-import { conversationHeadKey, type ActiveCompanion } from './Chat'
+import { conversationHeadKey, type ActiveCompanion } from '../lib/session'
 import type { Status } from '../components/Dot'
 
 export function Vault({

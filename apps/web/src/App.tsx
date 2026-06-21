@@ -4,18 +4,27 @@
  * still exists but is demoted to a "developer tools" view off the footer, so the
  * primary experience reads like a companion, not a test bench.
  */
-import { useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { connectWallet, hasInjectedWallet, type Connection } from './lib/wallet'
 import { deriveOwnerKey, keyCheckValue } from './lib/crypto'
 import { OG_TESTNET } from './lib/og'
 import { CompanionCreator } from './screens/CompanionCreator'
-import { Chat, conversationHeadKey, type ActiveCompanion } from './screens/Chat'
-import { Vault } from './screens/Vault'
-import { Harness } from './screens/Harness'
+import {
+  conversationHeadKey,
+  loadSession,
+  saveSession,
+  clearSession,
+  type ActiveCompanion,
+} from './lib/session'
 import { CompanionOrb } from './components/CompanionOrb'
 import type { MemoryMessage } from './lib/conversation-store'
 import type { KiprExport } from './lib/export'
 import type { Status } from './components/Dot'
+
+// Lazy so the heavy compute SDK (chat) and storage SDK aren't in the first paint.
+const Chat = lazy(() => import('./screens/Chat').then((m) => ({ default: m.Chat })))
+const Vault = lazy(() => import('./screens/Vault').then((m) => ({ default: m.Vault })))
+const Harness = lazy(() => import('./screens/Harness').then((m) => ({ default: m.Harness })))
 
 type View = 'create' | 'chat' | 'vault'
 
@@ -31,6 +40,21 @@ export function App() {
   const [companion, setCompanion] = useState<ActiveCompanion | null>(null)
   const [view, setView] = useState<View>('create')
   const [restoredInitial, setRestoredInitial] = useState<{ messages: MemoryMessage[]; head: string | null } | null>(null)
+  const [bootSession] = useState(loadSession)
+
+  // Continuity across refreshes: once the same wallet reconnects, bring the companion back.
+  useEffect(() => {
+    if (companion || !conn || !bootSession) return
+    if (bootSession.ownerAddr === conn.address.toLowerCase()) {
+      setCompanion(bootSession)
+      setView('chat')
+    }
+  }, [conn, companion, bootSession])
+
+  // Persist the active companion pointer (non-secret) so it survives a reload.
+  useEffect(() => {
+    if (companion) saveSession(companion)
+  }, [companion])
 
   const onRestore = useCallback(
     (exp: KiprExport) => {
@@ -56,6 +80,7 @@ export function App() {
 
   const onDelete = useCallback(() => {
     if (companion) localStorage.removeItem(conversationHeadKey(companion.ownerAddr))
+    clearSession()
     setCompanion(null)
     setRestoredInitial(null)
     setView('create')
@@ -162,35 +187,37 @@ export function App() {
               )}
             </header>
 
-            {showDev ? (
-              <Harness conn={conn} walletStatus={walletStatus} walletErr={walletErr} onConnect={onConnect} />
-            ) : view === 'vault' && conn ? (
-              <Vault conn={conn} ownerKey={ownerKey} companion={companion} onRestore={onRestore} onDelete={onDelete} />
-            ) : companion && view === 'chat' && conn ? (
-              <Chat
-                key={companion.ownerAddr}
-                conn={conn}
-                ownerKey={ownerKey}
-                companion={companion}
-                initial={restoredInitial ?? undefined}
-              />
-            ) : (
-              <CompanionCreator
-                conn={conn}
-                ownerKey={ownerKey}
-                onUnlock={onUnlock}
-                unlockStatus={unlockStatus}
-                companion={companion}
-                onCompanionReady={(c) => {
-                  const firstTime = !companion
-                  setCompanion(c)
-                  if (firstTime) {
-                    setRestoredInitial(null)
-                    setView('chat')
-                  }
-                }}
-              />
-            )}
+            <Suspense fallback={<ScreenLoading />}>
+              {showDev ? (
+                <Harness conn={conn} walletStatus={walletStatus} walletErr={walletErr} onConnect={onConnect} />
+              ) : view === 'vault' && conn ? (
+                <Vault conn={conn} ownerKey={ownerKey} companion={companion} onRestore={onRestore} onDelete={onDelete} />
+              ) : companion && view === 'chat' && conn ? (
+                <Chat
+                  key={companion.ownerAddr}
+                  conn={conn}
+                  ownerKey={ownerKey}
+                  companion={companion}
+                  initial={restoredInitial ?? undefined}
+                />
+              ) : (
+                <CompanionCreator
+                  conn={conn}
+                  ownerKey={ownerKey}
+                  onUnlock={onUnlock}
+                  unlockStatus={unlockStatus}
+                  companion={companion}
+                  onCompanionReady={(c) => {
+                    const firstTime = !companion
+                    setCompanion(c)
+                    if (firstTime) {
+                      setRestoredInitial(null)
+                      setView('chat')
+                    }
+                  }}
+                />
+              )}
+            </Suspense>
           </>
         )}
 
@@ -202,5 +229,14 @@ export function App() {
         </footer>
       </main>
     </>
+  )
+}
+
+function ScreenLoading() {
+  return (
+    <div className="screen-loading">
+      <CompanionOrb size={64} state="thinking" />
+      <p className="muted small">one moment…</p>
+    </div>
   )
 }

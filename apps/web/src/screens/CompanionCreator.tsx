@@ -22,7 +22,7 @@ import {
 } from '@kipr/core/personality'
 import { personalityIntelligentData } from '@kipr/core/companion'
 import type { Connection } from '../lib/wallet'
-import type { ActiveCompanion } from './Chat'
+import type { ActiveCompanion } from '../lib/session'
 import { persistPersonality, loadPersonality } from '../lib/companion-store'
 import { addVersion, getVersions } from '../lib/personality-history'
 import { OG_TESTNET } from '../lib/og'
