@@ -143,6 +143,14 @@ body {
 .lede { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.7; max-width: 31rem; }
 .lede em { font-style: normal; font-weight: 700; color: var(--ink); }
 .cta { width: auto; padding: 16px 38px; font-size: 16px; border-radius: 16px; margin-top: 8px; }
+.cta-group { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 8px; }
+.cta-alt { width: auto; padding: 16px 38px; font-size: 16px; border-radius: 16px; }
+.cta-secondary {
+  width: auto; padding: 11px 22px; font-size: 14px; border-radius: 999px;
+  background: var(--glass); color: var(--muted); border: 1px solid var(--line-2);
+  box-shadow: none;
+}
+.cta-secondary:hover:not(:disabled) { transform: translateY(-1px); color: var(--ink); background: var(--glass-2); box-shadow: none; }
 .trust { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
 .trust span {
   color: var(--muted); font-size: 12.5px; font-weight: 600;

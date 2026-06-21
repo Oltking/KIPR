@@ -17,6 +17,7 @@ import {
   type ActiveCompanion,
 } from './lib/session'
 import { CompanionOrb } from './components/CompanionOrb'
+import { EmbeddedAuth } from './components/EmbeddedAuth'
 import type { MemoryMessage } from './lib/conversation-store'
 import type { KiprExport } from './lib/export'
 import type { Status } from './components/Dot'
@@ -28,7 +29,7 @@ const Harness = lazy(() => import('./screens/Harness').then((m) => ({ default: m
 
 type View = 'create' | 'chat' | 'vault'
 
-export function App() {
+export function App({ privyEnabled }: { privyEnabled: boolean }) {
   const [conn, setConn] = useState<Connection | null>(null)
   const [walletStatus, setWalletStatus] = useState<Status>('idle')
   const [walletErr, setWalletErr] = useState('')
@@ -97,19 +98,26 @@ export function App() {
     }
   }, [])
 
+  // One place both wallet sources (MetaMask + Privy embedded) funnel into.
+  const applyConnection = useCallback(
+    (c: Connection) => {
+      setConn(c)
+      setWalletStatus('ok')
+      void refreshBalance(c)
+    },
+    [refreshBalance],
+  )
+
   const onConnect = useCallback(async () => {
     setWalletStatus('busy')
     setWalletErr('')
     try {
-      const c = await connectWallet()
-      setConn(c)
-      setWalletStatus('ok')
-      void refreshBalance(c)
+      applyConnection(await connectWallet())
     } catch (e) {
       setWalletErr((e as Error).message)
       setWalletStatus('error')
     }
-  }, [refreshBalance])
+  }, [applyConnection])
 
   const onUnlock = useCallback(async () => {
     if (!conn) return
@@ -150,10 +158,20 @@ export function App() {
               memory &amp; personality live in storage <em>you</em> own. No company can read it, change
               it, or take it away.
             </p>
-            <button className="cta" onClick={onConnect} disabled={walletStatus === 'busy' || !hasInjectedWallet()}>
-              {walletStatus === 'busy' ? 'Connecting…' : hasInjectedWallet() ? 'Begin' : 'Install a wallet to begin'}
-            </button>
-            {!hasInjectedWallet() && <p className="muted small">KIPR needs an EVM wallet like MetaMask.</p>}
+            <div className="cta-group">
+              {privyEnabled && <EmbeddedAuth connected={!!conn} onConnection={applyConnection} />}
+              {hasInjectedWallet() ? (
+                <button
+                  className={privyEnabled ? 'cta-secondary' : 'cta'}
+                  onClick={onConnect}
+                  disabled={walletStatus === 'busy'}
+                >
+                  {walletStatus === 'busy' ? 'Connecting…' : privyEnabled ? 'or connect a wallet' : 'Begin'}
+                </button>
+              ) : (
+                !privyEnabled && <p className="muted small">KIPR needs an EVM wallet like MetaMask.</p>
+              )}
+            </div>
             {walletErr && <p className="err">{walletErr}</p>}
             <div className="trust">
               <span>🔒 TEE-private</span>
