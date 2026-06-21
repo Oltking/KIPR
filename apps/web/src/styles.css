@@ -376,6 +376,27 @@ code {
 .prov-body span { color: var(--faint); text-transform: uppercase; letter-spacing: 0.5px; }
 .prov-body code { background: none; color: var(--cyan); padding: 0; word-break: break-all; text-align: right; }
 
+/* ── P3: diff + version timeline ────────────────────────────────────────── */
+.diff { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(10, 7, 18, 0.5); display: flex; flex-direction: column; gap: 10px; }
+.diff-ver { display: flex; align-items: center; gap: 10px; justify-content: center; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.diff-arrow { color: var(--faint); }
+.diff-row { display: grid; grid-template-columns: 84px 1fr; gap: 4px 10px; font-size: 13px; }
+.diff-label { grid-row: span 2; color: var(--faint); text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.6px; font-weight: 700; align-self: center; }
+.diff-from { color: var(--coral); text-decoration: line-through; opacity: 0.8; word-break: break-word; }
+.diff-to { color: var(--emerald); word-break: break-word; }
+
+.timeline { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; }
+.tl { display: flex; gap: 12px; padding-bottom: 16px; position: relative; }
+.tl:not(:last-child)::after { content: ''; position: absolute; left: 5px; top: 16px; bottom: 0; width: 2px; background: var(--line); }
+.tl-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; margin-top: 3px; background: var(--faint); z-index: 1; }
+.tl.on .tl-dot { background: var(--violet); box-shadow: 0 0 12px 1px rgba(139, 92, 246, 0.7); }
+.tl-body { display: flex; flex-direction: column; gap: 3px; }
+.tl-top { display: flex; align-items: center; gap: 8px; }
+.tl-now { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--violet); background: rgba(139, 92, 246, 0.14); border: 1px solid rgba(139, 92, 246, 0.4); border-radius: 999px; padding: 2px 8px; }
+.tl-old { font-size: 11px; color: var(--faint); }
+.tl-meta { display: flex; flex-direction: column; gap: 1px; }
+.prov-old { color: var(--amber); }
+
 /* ── danger / delete ────────────────────────────────────────────────────── */
 .card.danger { border-color: rgba(251, 113, 133, 0.35); }
 .card.danger::before { background: linear-gradient(90deg, transparent, rgba(244, 63, 94, 0.6), transparent); }

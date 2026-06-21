@@ -8,13 +8,14 @@ import type { MessageProvenance } from '../lib/conversation-store'
 
 const shortModel = (m: string) => m.split('/').pop() ?? m
 
-export function ProvenanceBadge({ p }: { p: MessageProvenance }) {
+export function ProvenanceBadge({ p, currentVersion }: { p: MessageProvenance; currentVersion?: string }) {
   const tee =
     p.teeVerified === true
       ? { cls: 'ok', label: '✓ TEE-verified' }
       : p.teeVerified === false
         ? { cls: 'error', label: '✕ unverified' }
         : { cls: 'pending', label: '◌ TEE pending' }
+  const older = !!currentVersion && p.personalityVersion !== currentVersion
 
   return (
     <details className="prov">
@@ -22,6 +23,7 @@ export function ProvenanceBadge({ p }: { p: MessageProvenance }) {
         <span className="prov-lock">🔒 Private</span>
         <span className={`prov-tee ${tee.cls}`}>{tee.label}</span>
         <span className="prov-model">{shortModel(p.modelId)}</span>
+        {older && <span className="prov-old">· earlier version</span>}
       </summary>
       <div className="prov-body">
         <div><span>model</span><code>{p.modelId}</code></div>

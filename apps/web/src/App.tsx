@@ -180,10 +180,14 @@ export function App() {
                 ownerKey={ownerKey}
                 onUnlock={onUnlock}
                 unlockStatus={unlockStatus}
+                companion={companion}
                 onCompanionReady={(c) => {
+                  const firstTime = !companion
                   setCompanion(c)
-                  setRestoredInitial(null)
-                  setView('chat')
+                  if (firstTime) {
+                    setRestoredInitial(null)
+                    setView('chat')
+                  }
                 }}
               />
             )}

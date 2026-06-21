@@ -13,7 +13,7 @@
  *     decision — a security choice flagged for explicit sign-off)
  *   - mint the ERC-7857 token (needs the contract deploy decision)
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   makePersonality,
   personalityVersion,
@@ -22,10 +22,35 @@ import {
 } from '@kipr/core/personality'
 import { personalityIntelligentData } from '@kipr/core/companion'
 import type { Connection } from '../lib/wallet'
+import type { ActiveCompanion } from './Chat'
 import { persistPersonality, loadPersonality } from '../lib/companion-store'
+import { addVersion, getVersions } from '../lib/personality-history'
 import { OG_TESTNET } from '../lib/og'
 import { Dot, type Status } from '../components/Dot'
 import { CompanionOrb } from '../components/CompanionOrb'
+import { VersionHistory } from '../components/VersionHistory'
+
+interface FieldChange {
+  label: string
+  from: string
+  to: string
+}
+
+/** Field-level diff between the current on-chain personality and the edited form. */
+function diffFields(base: PersonalityConfig | null, next: PersonalityConfig): FieldChange[] {
+  if (!base) return []
+  const out: FieldChange[] = []
+  const cmp = (label: string, a: string, b: string) => {
+    if (a !== b) out.push({ label, from: a, to: b })
+  }
+  cmp('name', base.name, next.name)
+  cmp('pronouns', base.pronouns ?? '—', next.pronouns ?? '—')
+  cmp('vibe', base.vibe, next.vibe)
+  cmp('values', base.values.join(' · '), next.values.join(' · '))
+  cmp('boundaries', base.boundaries.join(' · '), next.boundaries.join(' · '))
+  cmp('model', base.modelId, next.modelId)
+  return out
+}
 
 // Pinned at creation from a 0G Compute TeeML provider's model. Until the compute
 // ledger is funded we pin the configured default; changing it changes the version.
@@ -39,12 +64,14 @@ export function CompanionCreator({
   ownerKey,
   onUnlock,
   unlockStatus,
+  companion,
   onCompanionReady,
 }: {
   conn: Connection | null
   ownerKey: CryptoKey | null
   onUnlock: () => void
   unlockStatus: Status
+  companion: ActiveCompanion | null
   onCompanionReady: (c: {
     ownerAddr: string
     name: string
@@ -72,6 +99,46 @@ export function CompanionCreator({
   const [recoverErr, setRecoverErr] = useState('')
   const [recovered, setRecovered] = useState<{ name: string; version: string } | null>(null)
 
+  // Editing an existing companion: load its current personality from 0G into the form
+  // so edits diff against the real, in-force version (P3). `baseline` is that version.
+  const editing = !!companion
+  const [baseline, setBaseline] = useState<PersonalityConfig | null>(null)
+  const [loadedRoot, setLoadedRoot] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
+
+  useEffect(() => {
+    if (!companion || !ownerKey) return
+    if (loadedRoot === companion.personalityRootHash) return
+    let cancelled = false
+    loadPersonality(ownerKey, companion.personalityRootHash)
+      .then(({ config: c }) => {
+        if (cancelled) return
+        setName(c.name)
+        setPronouns(c.pronouns ?? '')
+        setVibe(c.vibe)
+        setValues(c.values.join('\n'))
+        setBoundaries(c.boundaries.join('\n'))
+        setModelId(c.modelId)
+        setBaseline(c)
+        setLoadedRoot(companion.personalityRootHash)
+        // Seed history with the in-force version so the timeline always shows at least it.
+        addVersion(companion.ownerAddr, {
+          version: companion.version,
+          rootHash: companion.personalityRootHash,
+          name: c.name,
+          modelId: c.modelId,
+          createdAt: new Date().toISOString(),
+          confirmed: true,
+        })
+      })
+      .catch(() => {
+        /* leave the form as-is; the user can still edit */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [companion, ownerKey, loadedRoot])
+
   // Live, real derivation from the shared domain core.
   const config = useMemo<PersonalityConfig>(
     () =>
@@ -89,7 +156,13 @@ export function CompanionCreator({
   const blobSize = useMemo(() => canonicalBytes(config).length, [config])
   const dataHash = personalityIntelligentData(version) // { dataDescription, dataHash }
 
-  async function onCreate() {
+  const changes = useMemo(() => diffFields(baseline, config), [baseline, config])
+  const changed = editing && version !== companion!.version
+  const owner = conn?.address.toLowerCase() ?? ''
+
+  // Persist the current config as a new version (create OR adopt-an-edit). Records the
+  // version in history on success — every adoption is an explicit, opt-in act.
+  async function persist() {
     if (!conn || !ownerKey) return
     setSaveStatus('busy')
     setSaveErr('')
@@ -100,6 +173,17 @@ export function CompanionCreator({
       const ref = await persistPersonality(conn.signer, ownerKey, config)
       setSaved(ref)
       setSaveStatus('ok')
+      setConfirming(false)
+      setBaseline(config)
+      setLoadedRoot(ref.rootHash)
+      addVersion(conn.address.toLowerCase(), {
+        version: ref.version,
+        rootHash: ref.rootHash,
+        name: config.name,
+        modelId: config.modelId,
+        createdAt: new Date().toISOString(),
+        confirmed: true,
+      })
       onCompanionReady({
         ownerAddr: conn.address.toLowerCase(),
         name: config.name,
@@ -135,7 +219,7 @@ export function CompanionCreator({
     <>
       <section className="intro">
         <CompanionOrb size={108} state={orbState} />
-        <h2 className="intro-h">{saved ? `Meet ${config.name}` : 'Shape your companion'}</h2>
+        <h2 className="intro-h">{editing ? `Shape ${companion!.name}` : 'Shape your companion'}</h2>
         <p className="intro-p">
           Who it is, how it talks, what it holds to — you decide, and it's yours. Nothing here can be
           changed behind your back: every detail is sealed under a version only you can move.
@@ -190,16 +274,17 @@ export function CompanionCreator({
         <p className="muted small">Edit any field above and this hash changes — that's the guarantee made visible.</p>
       </section>
 
-      {/* Commit — REAL: encrypt client-side + write to 0G */}
+      {/* Commit — REAL: encrypt client-side + write to 0G. Editing requires opt-in. */}
       <section className={`card ${saveStatus}`}>
         <div className="card-h">
           <span className="step">3</span>
-          <h2>Save to 0G — encrypted, yours</h2>
+          <h2>{editing ? 'Adopt a new version' : 'Save to 0G — encrypted, yours'}</h2>
           <Dot status={saveStatus} />
         </div>
         <p className="muted small">
-          Encrypted client-side with your wallet-derived key (AES-256-GCM) before it ever leaves the
-          device — 0G stores only ciphertext.
+          {editing
+            ? 'Changes never apply silently — review what moved, then opt in. Your old messages keep the version that produced them.'
+            : 'Encrypted client-side with your wallet-derived key (AES-256-GCM) before it ever leaves the device — 0G stores only ciphertext.'}
         </p>
         {!conn ? (
           <p className="muted">Connect a wallet first.</p>
@@ -207,10 +292,37 @@ export function CompanionCreator({
           <button onClick={onUnlock} disabled={unlockStatus === 'busy'}>
             {unlockStatus === 'busy' ? 'Sign in wallet…' : '🔒 Unlock (sign once to get your key)'}
           </button>
-        ) : (
-          <button onClick={onCreate} disabled={saveStatus === 'busy'}>
+        ) : !editing ? (
+          <button onClick={persist} disabled={saveStatus === 'busy'}>
             {saveStatus === 'busy' ? 'Encrypting → storing…' : 'Create companion'}
           </button>
+        ) : !changed ? (
+          <button disabled title="No changes to adopt">This is the current version ✓</button>
+        ) : !confirming ? (
+          <button onClick={() => setConfirming(true)}>Review change ({changes.length})</button>
+        ) : (
+          <div className="confirm">
+            <div className="diff">
+              <div className="diff-ver">
+                <span className="mono hash">{companion!.version.slice(0, 12)}…</span>
+                <span className="diff-arrow">→</span>
+                <span className="mono hash">{version.slice(0, 12)}…</span>
+              </div>
+              {changes.map((c) => (
+                <div key={c.label} className="diff-row">
+                  <span className="diff-label">{c.label}</span>
+                  <span className="diff-from">{c.from}</span>
+                  <span className="diff-to">{c.to}</span>
+                </div>
+              ))}
+            </div>
+            <div className="confirm-row">
+              <button onClick={persist} disabled={saveStatus === 'busy'}>
+                {saveStatus === 'busy' ? 'Adopting…' : 'Adopt new version'}
+              </button>
+              <button className="ghost" onClick={() => setConfirming(false)} disabled={saveStatus === 'busy'}>Cancel</button>
+            </div>
+          </div>
         )}
         {saved && (
           <dl className="kv">
@@ -248,6 +360,9 @@ export function CompanionCreator({
           {recoverErr && <p className="err">{recoverErr}</p>}
         </section>
       )}
+
+      {/* P3 — the version timeline */}
+      {editing && <VersionHistory versions={getVersions(owner)} current={companion!.version} />}
 
       {/* The one remaining gated step */}
       <section className="card gated">

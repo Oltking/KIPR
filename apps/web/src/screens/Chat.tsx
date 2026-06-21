@@ -148,7 +148,7 @@ export function Chat({
         {messages.map((m, i) => (
           <div key={i} className={`bubble ${m.role}`}>
             <div className="bubble-text">{m.content}</div>
-            {m.provenance && <ProvenanceBadge p={m.provenance} />}
+            {m.provenance && <ProvenanceBadge p={m.provenance} currentVersion={companion.version} />}
           </div>
         ))}
         <div ref={endRef} />
