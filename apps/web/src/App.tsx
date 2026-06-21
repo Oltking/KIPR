@@ -18,6 +18,7 @@ import {
 } from './lib/session'
 import { CompanionOrb } from './components/CompanionOrb'
 import { EmbeddedAuth } from './components/EmbeddedAuth'
+import { FundingButton } from './components/FundingButton'
 import type { MemoryMessage } from './lib/conversation-store'
 import type { KiprExport } from './lib/export'
 import type { Status } from './components/Dot'
@@ -98,10 +99,13 @@ export function App({ privyEnabled }: { privyEnabled: boolean }) {
     }
   }, [])
 
+  const [walletKind, setWalletKind] = useState<'metamask' | 'embedded' | null>(null)
+
   // One place both wallet sources (MetaMask + Privy embedded) funnel into.
   const applyConnection = useCallback(
-    (c: Connection) => {
+    (c: Connection, kind: 'metamask' | 'embedded') => {
       setConn(c)
+      setWalletKind(kind)
       setWalletStatus('ok')
       void refreshBalance(c)
     },
@@ -112,7 +116,7 @@ export function App({ privyEnabled }: { privyEnabled: boolean }) {
     setWalletStatus('busy')
     setWalletErr('')
     try {
-      applyConnection(await connectWallet())
+      applyConnection(await connectWallet(), 'metamask')
     } catch (e) {
       setWalletErr((e as Error).message)
       setWalletStatus('error')
@@ -159,7 +163,9 @@ export function App({ privyEnabled }: { privyEnabled: boolean }) {
               it, or take it away.
             </p>
             <div className="cta-group">
-              {privyEnabled && <EmbeddedAuth connected={!!conn} onConnection={applyConnection} />}
+              {privyEnabled && (
+                <EmbeddedAuth connected={!!conn} onConnection={(c) => applyConnection(c, 'embedded')} />
+              )}
               {hasInjectedWallet() ? (
                 <button
                   className={privyEnabled ? 'cta-secondary' : 'cta'}
@@ -207,10 +213,14 @@ export function App({ privyEnabled }: { privyEnabled: boolean }) {
               </div>
               {unlockErr && <p className="err">{unlockErr}</p>}
               {conn && balance !== null && Number(balance) < 0.05 && (
-                <p className="lowfunds">
-                  ⚠ Low on 0G ({balance}). Saving to 0G needs testnet tokens —{' '}
-                  <a href="https://faucet.0g.ai" target="_blank" rel="noreferrer">get some free →</a>
-                </p>
+                <div className="lowfunds">
+                  <span>⚠ Low on 0G ({balance}). Saving to 0G needs a little gas.</span>
+                  {walletKind === 'embedded' && privyEnabled ? (
+                    <FundingButton address={conn.address} onFunded={() => void refreshBalance(conn)} />
+                  ) : (
+                    <a href="https://faucet.0g.ai" target="_blank" rel="noreferrer">get some free →</a>
+                  )}
+                </div>
               )}
               {!showDev && (
                 <nav className="tabs">

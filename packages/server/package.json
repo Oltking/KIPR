@@ -13,13 +13,21 @@
   },
   "scripts": {
     "smoke:cache": "tsx src/smoke/cache.ts",
+    "funder": "tsx src/funder/server.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@kipr/core": "workspace:*",
-    "@kipr/og": "workspace:*"
+    "@kipr/og": "workspace:*",
+    "@privy-io/server-auth": "^1.32.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "ethers": "6.13.1",
+    "express": "^4.21.2"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
     "@types/node": "^22.10.5",
     "@types/pg": "^8.11.10",
     "pg": "^8.13.1",
