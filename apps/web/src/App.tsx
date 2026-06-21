@@ -9,9 +9,12 @@ import { connectWallet, hasInjectedWallet, type Connection } from './lib/wallet'
 import { deriveOwnerKey, keyCheckValue } from './lib/crypto'
 import { OG_TESTNET } from './lib/og'
 import { CompanionCreator } from './screens/CompanionCreator'
+import { Chat, type ActiveCompanion } from './screens/Chat'
 import { Harness } from './screens/Harness'
 import { CompanionOrb } from './components/CompanionOrb'
 import type { Status } from './components/Dot'
+
+type View = 'create' | 'chat'
 
 export function App() {
   const [conn, setConn] = useState<Connection | null>(null)
@@ -22,6 +25,8 @@ export function App() {
   const [unlockStatus, setUnlockStatus] = useState<Status>('idle')
   const [unlockErr, setUnlockErr] = useState('')
   const [showDev, setShowDev] = useState(false)
+  const [companion, setCompanion] = useState<ActiveCompanion | null>(null)
+  const [view, setView] = useState<View>('create')
 
   const onConnect = useCallback(async () => {
     setWalletStatus('busy')
@@ -111,12 +116,29 @@ export function App() {
                 )}
               </div>
               {unlockErr && <p className="err">{unlockErr}</p>}
+              {companion && !showDev && (
+                <nav className="tabs">
+                  <button className={view === 'chat' ? 'tab on' : 'tab'} onClick={() => setView('chat')}>Chat</button>
+                  <button className={view === 'create' ? 'tab on' : 'tab'} onClick={() => setView('create')}>Companion</button>
+                </nav>
+              )}
             </header>
 
             {showDev ? (
               <Harness conn={conn} walletStatus={walletStatus} walletErr={walletErr} onConnect={onConnect} />
+            ) : companion && view === 'chat' && conn ? (
+              <Chat conn={conn} ownerKey={ownerKey} companion={companion} />
             ) : (
-              <CompanionCreator conn={conn} ownerKey={ownerKey} onUnlock={onUnlock} unlockStatus={unlockStatus} />
+              <CompanionCreator
+                conn={conn}
+                ownerKey={ownerKey}
+                onUnlock={onUnlock}
+                unlockStatus={unlockStatus}
+                onCompanionReady={(c) => {
+                  setCompanion(c)
+                  setView('chat')
+                }}
+              />
             )}
           </>
         )}
