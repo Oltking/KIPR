@@ -86,17 +86,30 @@ export function App() {
     setView('create')
   }, [companion])
 
+  const [balance, setBalance] = useState<string | null>(null)
+
+  const refreshBalance = useCallback(async (c: Connection) => {
+    try {
+      const wei = await c.provider.getBalance(c.address)
+      setBalance((Number(wei) / 1e18).toFixed(3))
+    } catch {
+      /* leave balance unknown */
+    }
+  }, [])
+
   const onConnect = useCallback(async () => {
     setWalletStatus('busy')
     setWalletErr('')
     try {
-      setConn(await connectWallet())
+      const c = await connectWallet()
+      setConn(c)
       setWalletStatus('ok')
+      void refreshBalance(c)
     } catch (e) {
       setWalletErr((e as Error).message)
       setWalletStatus('error')
     }
-  }, [])
+  }, [refreshBalance])
 
   const onUnlock = useCallback(async () => {
     if (!conn) return
@@ -107,11 +120,12 @@ export function App() {
       setOwnerKey(key)
       setKcv(await keyCheckValue(key))
       setUnlockStatus('ok')
+      void refreshBalance(conn)
     } catch (e) {
       setUnlockErr((e as Error).message)
       setUnlockStatus('error')
     }
-  }, [conn])
+  }, [conn, refreshBalance])
 
   const short = conn ? `${conn.address.slice(0, 6)}…${conn.address.slice(-4)}` : null
 
@@ -164,8 +178,8 @@ export function App() {
                     {walletStatus === 'busy' ? 'Connecting…' : 'Connect'}
                   </button>
                 ) : ownerKey ? (
-                  <span className="chip" title={`${conn.address}\nkey ${kcv}`}>
-                    <span className="statusdot ok" /> {short} · 🔓
+                  <span className="chip" title={`${conn.address}\n${balance ?? '?'} 0G\nkey ${kcv}`}>
+                    <span className="statusdot ok" /> {short} · {balance ?? '…'} 0G · 🔓
                   </span>
                 ) : (
                   <button className="chip-btn" onClick={onUnlock} disabled={unlockStatus === 'busy'} title="Sign once to derive your encryption key">
@@ -174,6 +188,12 @@ export function App() {
                 )}
               </div>
               {unlockErr && <p className="err">{unlockErr}</p>}
+              {conn && balance !== null && Number(balance) < 0.05 && (
+                <p className="lowfunds">
+                  ⚠ Low on 0G ({balance}). Saving to 0G needs testnet tokens —{' '}
+                  <a href="https://faucet.0g.ai" target="_blank" rel="noreferrer">get some free →</a>
+                </p>
+              )}
               {!showDev && (
                 <nav className="tabs">
                   {companion && (
