@@ -5,10 +5,11 @@
  * appends it to the on-chain snapshot chain; "Reload from 0G" rebuilds it from the
  * head + your key alone — proving the conversation lives with you, not a server.
  *
- * Inference is honestly GATED: real replies require 0G Compute (TeeML + processResponse)
- * which needs a funded ledger (≥3 0G). Until then KIPR replies with a local preview
- * message — NO conversation content leaves your device, and no message claims a TEE
- * verification it didn't earn (provenance shows "pending").
+ * Inference is REAL when the compute ledger is active: the reply comes straight from
+ * a 0G TeeML provider (browser → provider; our server never sees it) and processResponse
+ * gives a genuine ✓ TEE-verified badge. Funding is an explicit one-time step (never a
+ * mid-chat popup). If compute is unavailable/unfunded, KIPR falls back to a local
+ * preview reply — no content leaves the device and no badge is faked.
  */
 import { useEffect, useRef, useState } from 'react'
 import type { Connection } from '../lib/wallet'
@@ -18,6 +19,16 @@ import {
   type MemoryMessage,
   type MessageProvenance,
 } from '../lib/conversation-store'
+import {
+  createBroker,
+  pickTeeMLProvider,
+  ledgerStatus,
+  activateFunding,
+  chat as runInference,
+  type Broker,
+  type InferenceService,
+} from '../lib/compute'
+import { loadPersonality } from '../lib/companion-store'
 import { ProvenanceBadge } from '../components/ProvenanceBadge'
 import { CompanionOrb } from '../components/CompanionOrb'
 import { OG_TESTNET } from '../lib/og'
@@ -30,6 +41,8 @@ export interface ActiveCompanion {
   version: string
   personalityRootHash: string
 }
+
+type ComputeState = 'checking' | 'inactive' | 'active' | 'unavailable'
 
 const now = () => new Date().toISOString()
 export const conversationHeadKey = (ownerAddr: string) => `kipr.conv.head.${ownerAddr}`
@@ -46,11 +59,11 @@ export function Chat({
   companion: ActiveCompanion
   initial?: { messages: MemoryMessage[]; head: string | null }
 }) {
-  const prov = (): MessageProvenance => ({
+  const localProv = (): MessageProvenance => ({
     modelId: companion.modelId,
     providerAddr: '0x0000000000000000000000000000000000000000',
     chatId: null,
-    teeVerified: null, // compute gated → not yet verified; never faked
+    teeVerified: null, // local message → no TEE claim
     personalityVersion: companion.version,
   })
 
@@ -62,7 +75,7 @@ export function Chat({
             role: 'assistant',
             content: `Hi — I'm ${companion.name}. This space is just ours: private, and yours to keep. Tell me anything.`,
             createdAt: now(),
-            provenance: prov(),
+            provenance: localProv(),
           },
         ],
   )
@@ -73,29 +86,134 @@ export function Chat({
   const [savedCount, setSavedCount] = useState(initial?.messages.length ?? 0)
   const [saveStatus, setSaveStatus] = useState<Status>('idle')
   const [saveErr, setSaveErr] = useState('')
+
+  const [compute, setCompute] = useState<ComputeState>('checking')
+  const [activateStatus, setActivateStatus] = useState<Status>('idle')
+  const [activateErr, setActivateErr] = useState('')
+  const [thinking, setThinking] = useState(false)
+
+  const brokerRef = useRef<Broker | null>(null)
+  const providerRef = useRef<InferenceService | null>(null)
+  const systemPromptRef = useRef<string>('')
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, thinking])
+
+  // Set up the compute broker + provider, check the ledger, and load the system prompt.
+  useEffect(() => {
+    if (!ownerKey) return
+    let cancelled = false
+    setCompute('checking')
+    ;(async () => {
+      try {
+        const broker = await createBroker(conn.signer)
+        const provider = await pickTeeMLProvider(broker, ctx_provider())
+        const status = await ledgerStatus(broker)
+        if (cancelled) return
+        brokerRef.current = broker
+        providerRef.current = provider
+        try {
+          const { config } = await loadPersonality(ownerKey, companion.personalityRootHash)
+          systemPromptRef.current = config.systemPrompt
+        } catch {
+          /* fall back to no system prompt */
+        }
+        setCompute(status.exists && Number(status.balance0G) > 0 ? 'active' : 'inactive')
+      } catch {
+        if (!cancelled) setCompute('unavailable')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownerKey, companion.personalityRootHash])
 
   const unsaved = messages.length - savedCount
 
-  function send() {
+  async function onActivate() {
+    const broker = brokerRef.current
+    const provider = providerRef.current
+    if (!broker || !provider) return
+    setActivateStatus('busy')
+    setActivateErr('')
+    try {
+      await activateFunding(broker, provider.provider)
+      setCompute('active')
+      setActivateStatus('ok')
+    } catch (e) {
+      setActivateErr((e as Error).message)
+      setActivateStatus('error')
+    }
+  }
+
+  async function send() {
     const text = input.trim()
-    if (!text) return
+    if (!text || thinking) return
     setInput('')
     const user: MemoryMessage = { role: 'user', content: text, createdAt: now() }
-    // Local PREVIEW reply — no content leaves the device (real inference is gated).
-    const reply: MemoryMessage = {
-      role: 'assistant',
-      content:
-        `I've got that — and once my TEE compute is funded I'll think it through for real. ` +
-        `For now I'm in preview, but your words are already safe with you.`,
-      createdAt: now(),
-      provenance: prov(),
+    const next = [...messages, user]
+    setMessages(next)
+
+    const broker = brokerRef.current
+    const provider = providerRef.current
+    if (compute === 'active' && broker && provider) {
+      setThinking(true)
+      try {
+        const history = next
+          .filter((m) => m.role !== 'system')
+          .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+        const msgs = systemPromptRef.current
+          ? [{ role: 'system' as const, content: systemPromptRef.current }, ...history]
+          : history
+        const res = await runInference(broker, provider, msgs)
+        setMessages((m) => [
+          ...m,
+          {
+            role: 'assistant',
+            content: res.content,
+            createdAt: now(),
+            provenance: {
+              modelId: res.model,
+              providerAddr: res.provider,
+              chatId: res.chatID,
+              teeVerified: res.teeVerified, // the real, earned value
+              personalityVersion: companion.version,
+            },
+          },
+        ])
+      } catch (e) {
+        const msg = (e as Error).message
+        // A funding-shaped failure → nudge re-activation.
+        if (/sub-account|ledger|insufficient|fund/i.test(msg)) setCompute('inactive')
+        setMessages((m) => [
+          ...m,
+          {
+            role: 'assistant',
+            content: `(I couldn't reach the TEE provider just now: ${msg})`,
+            createdAt: now(),
+            provenance: localProv(),
+          },
+        ])
+      } finally {
+        setThinking(false)
+      }
+    } else {
+      // Preview fallback — local, no content leaves the device, no faked TEE badge.
+      setMessages((m) => [
+        ...m,
+        {
+          role: 'assistant',
+          content:
+            `I've got that — turn on TEE chat above and I'll think it through for real, ` +
+            `verifiably and privately. For now your words are safe with you.`,
+          createdAt: now(),
+          provenance: localProv(),
+        },
+      ])
     }
-    setMessages((m) => [...m, user, reply])
   }
 
   async function onSave() {
@@ -137,12 +255,31 @@ export function Chat({
   return (
     <div className="chat">
       <div className="chat-head">
-        <CompanionOrb size={40} state={saveStatus === 'busy' ? 'thinking' : 'idle'} />
+        <CompanionOrb size={40} state={thinking || saveStatus === 'busy' ? 'thinking' : 'idle'} />
         <div className="chat-id">
           <strong>{companion.name}</strong>
           <span className="muted small">🔒 private · owned on 0G</span>
         </div>
+        <ComputeBadge state={compute} />
       </div>
+
+      {/* TEE chat activation — explicit, one-time, never mid-chat */}
+      {ownerKey && compute === 'inactive' && (
+        <div className={`tee-panel ${activateStatus}`}>
+          <p className="muted small">
+            <strong>Turn on TEE chat.</strong> One-time setup opens your 0G Compute ledger and funds a
+            verifiable TeeML provider (~4 0G + gas, two wallet confirmations). After that, replies are
+            real and ✓ TEE-verified — straight from the enclave, never through a server.
+          </p>
+          <button onClick={onActivate} disabled={activateStatus === 'busy'}>
+            {activateStatus === 'busy' ? 'Confirm in wallet…' : 'Activate TEE chat'}
+          </button>
+          {activateErr && <p className="err">{activateErr}</p>}
+        </div>
+      )}
+      {compute === 'unavailable' && (
+        <p className="muted small center">Compute is offline right now — chatting in private preview mode.</p>
+      )}
 
       <div className="thread">
         {messages.map((m, i) => (
@@ -151,6 +288,11 @@ export function Chat({
             {m.provenance && <ProvenanceBadge p={m.provenance} currentVersion={companion.version} />}
           </div>
         ))}
+        {thinking && (
+          <div className="bubble assistant">
+            <div className="bubble-text typing"><span /><span /><span /></div>
+          </div>
+        )}
         <div ref={endRef} />
       </div>
 
@@ -161,8 +303,9 @@ export function Chat({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
           placeholder={`Message ${companion.name}…`}
+          disabled={thinking}
         />
-        <button className="send" onClick={send} disabled={!input.trim()}>↑</button>
+        <button className="send" onClick={send} disabled={!input.trim() || thinking}>↑</button>
       </div>
 
       <div className="memrow">
@@ -187,4 +330,20 @@ export function Chat({
       {saveErr && <p className="err">{saveErr}</p>}
     </div>
   )
+}
+
+/** Optional provider pin from build-time env (not required). */
+function ctx_provider(): string | undefined {
+  return (import.meta.env.VITE_ZG_COMPUTE_PROVIDER_ADDR as string | undefined) || undefined
+}
+
+function ComputeBadge({ state }: { state: ComputeState }) {
+  const map = {
+    checking: { cls: 'pending', label: '◌ TEE…' },
+    inactive: { cls: 'pending', label: '○ TEE off' },
+    active: { cls: 'ok', label: '✓ TEE on' },
+    unavailable: { cls: 'error', label: '✕ offline' },
+  } as const
+  const m = map[state]
+  return <span className={`tee-badge ${m.cls}`}>{m.label}</span>
 }

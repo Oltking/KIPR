@@ -349,6 +349,21 @@ code {
 }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 
+/* TEE compute status + activation */
+.tee-badge { margin-left: auto; font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line-2); white-space: nowrap; }
+.tee-badge.ok { color: var(--emerald); border-color: rgba(52, 211, 153, 0.45); background: rgba(52, 211, 153, 0.1); box-shadow: 0 0 14px -4px rgba(52, 211, 153, 0.5); }
+.tee-badge.pending { color: var(--amber); border-color: rgba(251, 191, 36, 0.35); background: rgba(251, 191, 36, 0.08); }
+.tee-badge.error { color: var(--coral); border-color: rgba(251, 113, 133, 0.4); }
+.tee-panel { background: linear-gradient(120deg, rgba(139, 92, 246, 0.14), rgba(34, 211, 238, 0.08)); border: 1px solid rgba(139, 92, 246, 0.4); border-radius: 16px; padding: 14px; }
+.tee-panel button { margin-top: 10px; }
+
+/* typing indicator */
+.typing { display: inline-flex; gap: 5px; align-items: center; padding: 4px 2px; }
+.typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: typing 1.2s infinite; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing { 0%, 60%, 100% { opacity: 0.3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+
 .composer { display: flex; gap: 10px; align-items: center; position: sticky; bottom: 12px; z-index: 2; }
 .composer .inp { margin: 0; flex: 1; border-radius: 999px; padding: 14px 18px; background: rgba(10, 7, 18, 0.85); backdrop-filter: blur(12px); }
 .send { width: 48px; height: 48px; flex: none; border-radius: 50%; padding: 0; font-size: 20px; font-weight: 800; display: grid; place-items: center; }
