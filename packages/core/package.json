@@ -1,0 +1,28 @@
+{
+  "name": "@kipr/core",
+  "version": "0.0.0",
+  "description": "KIPR domain core: personality/companion model, content-hash versioning (no silent swap), encrypted persistence to 0G Storage",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "smoke:personality": "tsx src/smoke/personality.ts",
+    "smoke:memory": "tsx src/smoke/memory.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@kipr/og": "workspace:*",
+    "ethers": "6.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
