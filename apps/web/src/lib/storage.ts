@@ -38,14 +38,46 @@ export interface UploadRef {
   txHash: string
 }
 
+/** Reject a promise if it doesn't settle in `ms` — so a lagging node can't hang forever. */
+function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `${what} didn't finalize in ${Math.round(ms / 1000)}s — the 0G storage node is likely lagging. ` +
+                `Your transaction may already be on-chain; please try again in a moment.`,
+            ),
+          ),
+        ms,
+      ),
+    ),
+  ])
+}
+
 /** Upload opaque bytes to 0G. Bytes should already be encrypted for production data. */
 export async function uploadBytes(signer: JsonRpcSigner, data: Uint8Array): Promise<UploadRef> {
+  // Pre-flight: an empty wallet stalls silently at tx submission — fail clearly instead.
+  const addr = await signer.getAddress()
+  const balance = await signer.provider.getBalance(addr)
+  if (balance === 0n) {
+    throw new Error(
+      `This wallet has 0 0G, so it can't pay for storage. Get testnet 0G from https://faucet.0g.ai, then retry.`,
+    )
+  }
+
   const indexer = makeIndexer()
   const mem = new MemData(data)
   const [tree, treeErr] = await mem.merkleTree()
   if (treeErr !== null || !tree) throw new Error(`merkleTree failed: ${treeErr ?? 'no tree'}`)
 
-  const [res, upErr] = await indexer.upload(mem, OG_TESTNET.evmRpc, signer)
+  const [res, upErr] = await withTimeout(
+    indexer.upload(mem, OG_TESTNET.evmRpc, signer),
+    120_000,
+    'Storing on 0G',
+  )
   if (upErr !== null) throw explainUploadError(upErr)
   // single result, or fragmented (>4GB) — narrow it.
   const rootHash = 'rootHashes' in res ? res.rootHashes[0] : res.rootHash

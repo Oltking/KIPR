@@ -9,12 +9,15 @@ import { connectWallet, hasInjectedWallet, type Connection } from './lib/wallet'
 import { deriveOwnerKey, keyCheckValue } from './lib/crypto'
 import { OG_TESTNET } from './lib/og'
 import { CompanionCreator } from './screens/CompanionCreator'
-import { Chat, type ActiveCompanion } from './screens/Chat'
+import { Chat, conversationHeadKey, type ActiveCompanion } from './screens/Chat'
+import { Vault } from './screens/Vault'
 import { Harness } from './screens/Harness'
 import { CompanionOrb } from './components/CompanionOrb'
+import type { MemoryMessage } from './lib/conversation-store'
+import type { KiprExport } from './lib/export'
 import type { Status } from './components/Dot'
 
-type View = 'create' | 'chat'
+type View = 'create' | 'chat' | 'vault'
 
 export function App() {
   const [conn, setConn] = useState<Connection | null>(null)
@@ -27,6 +30,36 @@ export function App() {
   const [showDev, setShowDev] = useState(false)
   const [companion, setCompanion] = useState<ActiveCompanion | null>(null)
   const [view, setView] = useState<View>('create')
+  const [restoredInitial, setRestoredInitial] = useState<{ messages: MemoryMessage[]; head: string | null } | null>(null)
+
+  const onRestore = useCallback(
+    (exp: KiprExport) => {
+      if (!conn) return
+      const owner = conn.address.toLowerCase()
+      const sameOwner = exp.owner.toLowerCase() === owner
+      // Same wallet → its on-chain head still decrypts; different wallet → load from the
+      // file's plaintext and let them re-Save to re-own it under this key.
+      const head = sameOwner ? exp.companion.conversationHead : null
+      setCompanion({
+        ownerAddr: owner,
+        name: exp.companion.name,
+        modelId: exp.personality.modelId,
+        version: exp.companion.personalityVersion,
+        personalityRootHash: exp.companion.personalityRootHash,
+      })
+      setRestoredInitial({ messages: exp.conversation, head })
+      if (head) localStorage.setItem(conversationHeadKey(owner), head)
+      setView('chat')
+    },
+    [conn],
+  )
+
+  const onDelete = useCallback(() => {
+    if (companion) localStorage.removeItem(conversationHeadKey(companion.ownerAddr))
+    setCompanion(null)
+    setRestoredInitial(null)
+    setView('create')
+  }, [companion])
 
   const onConnect = useCallback(async () => {
     setWalletStatus('busy')
@@ -116,18 +149,31 @@ export function App() {
                 )}
               </div>
               {unlockErr && <p className="err">{unlockErr}</p>}
-              {companion && !showDev && (
+              {!showDev && (
                 <nav className="tabs">
-                  <button className={view === 'chat' ? 'tab on' : 'tab'} onClick={() => setView('chat')}>Chat</button>
-                  <button className={view === 'create' ? 'tab on' : 'tab'} onClick={() => setView('create')}>Companion</button>
+                  {companion && (
+                    <button className={view === 'chat' ? 'tab on' : 'tab'} onClick={() => setView('chat')}>Chat</button>
+                  )}
+                  <button className={view === 'create' ? 'tab on' : 'tab'} onClick={() => setView('create')}>
+                    {companion ? 'Companion' : 'Create'}
+                  </button>
+                  <button className={view === 'vault' ? 'tab on' : 'tab'} onClick={() => setView('vault')}>Yours</button>
                 </nav>
               )}
             </header>
 
             {showDev ? (
               <Harness conn={conn} walletStatus={walletStatus} walletErr={walletErr} onConnect={onConnect} />
+            ) : view === 'vault' && conn ? (
+              <Vault conn={conn} ownerKey={ownerKey} companion={companion} onRestore={onRestore} onDelete={onDelete} />
             ) : companion && view === 'chat' && conn ? (
-              <Chat conn={conn} ownerKey={ownerKey} companion={companion} />
+              <Chat
+                key={companion.ownerAddr}
+                conn={conn}
+                ownerKey={ownerKey}
+                companion={companion}
+                initial={restoredInitial ?? undefined}
+              />
             ) : (
               <CompanionCreator
                 conn={conn}
@@ -136,6 +182,7 @@ export function App() {
                 unlockStatus={unlockStatus}
                 onCompanionReady={(c) => {
                   setCompanion(c)
+                  setRestoredInitial(null)
                   setView('chat')
                 }}
               />

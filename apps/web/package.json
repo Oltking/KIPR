@@ -9,7 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "selftest:crypto": "tsx src/lib/crypto.selftest.mts"
+    "selftest:crypto": "tsx src/lib/crypto.selftest.mts",
+    "selftest:export": "tsx src/lib/export.selftest.mts"
   },
   "dependencies": {
     "@0gfoundation/0g-storage-ts-sdk": "^1.2.10",

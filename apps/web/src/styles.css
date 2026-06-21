@@ -376,6 +376,17 @@ code {
 .prov-body span { color: var(--faint); text-transform: uppercase; letter-spacing: 0.5px; }
 .prov-body code { background: none; color: var(--cyan); padding: 0; word-break: break-all; text-align: right; }
 
+/* ── danger / delete ────────────────────────────────────────────────────── */
+.card.danger { border-color: rgba(251, 113, 133, 0.35); }
+.card.danger::before { background: linear-gradient(90deg, transparent, rgba(244, 63, 94, 0.6), transparent); }
+.danger-step { background: linear-gradient(120deg, #fb7185, #e11d48); box-shadow: 0 6px 16px -4px rgba(225, 29, 72, 0.6); }
+.danger-btn { background: linear-gradient(120deg, #f43f5e, #be123c); box-shadow: 0 10px 26px -10px rgba(244, 63, 94, 0.6); }
+.danger-btn:hover:not(:disabled) { box-shadow: 0 16px 34px -10px rgba(244, 63, 94, 0.75); }
+.ghost.danger-btn { background: rgba(244, 63, 94, 0.12); color: #ffb3be; border: 1px solid rgba(244, 63, 94, 0.4); }
+.confirm { margin-top: 10px; }
+.confirm-row { display: flex; gap: 10px; margin-top: 10px; }
+.confirm-row button { flex: 1; }
+
 /* ── footer ─────────────────────────────────────────────────────────────── */
 .ft { text-align: center; color: var(--faint); font-size: 12px; padding-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .ftdot { width: 7px; height: 7px; border-radius: 999px; background: var(--emerald); box-shadow: 0 0 10px 1px rgba(52,211,153,0.7); }

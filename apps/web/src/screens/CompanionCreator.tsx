@@ -45,7 +45,13 @@ export function CompanionCreator({
   ownerKey: CryptoKey | null
   onUnlock: () => void
   unlockStatus: Status
-  onCompanionReady: (c: { ownerAddr: string; name: string; modelId: string; version: string }) => void
+  onCompanionReady: (c: {
+    ownerAddr: string
+    name: string
+    modelId: string
+    version: string
+    personalityRootHash: string
+  }) => void
 }) {
   const [name, setName] = useState('KIPR')
   const [pronouns, setPronouns] = useState('')
@@ -99,6 +105,7 @@ export function CompanionCreator({
         name: config.name,
         modelId: config.modelId,
         version: ref.version,
+        personalityRootHash: ref.rootHash,
       })
     } catch (e) {
       setSaveErr((e as Error).message)

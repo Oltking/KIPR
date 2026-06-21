@@ -28,19 +28,23 @@ export interface ActiveCompanion {
   name: string
   modelId: string
   version: string
+  personalityRootHash: string
 }
 
 const now = () => new Date().toISOString()
-const headKey = (c: ActiveCompanion) => `kipr.conv.head.${c.ownerAddr}`
+export const conversationHeadKey = (ownerAddr: string) => `kipr.conv.head.${ownerAddr}`
+const headKey = (c: ActiveCompanion) => conversationHeadKey(c.ownerAddr)
 
 export function Chat({
   conn,
   ownerKey,
   companion,
+  initial,
 }: {
   conn: Connection
   ownerKey: CryptoKey | null
   companion: ActiveCompanion
+  initial?: { messages: MemoryMessage[]; head: string | null }
 }) {
   const prov = (): MessageProvenance => ({
     modelId: companion.modelId,
@@ -50,17 +54,23 @@ export function Chat({
     personalityVersion: companion.version,
   })
 
-  const [messages, setMessages] = useState<MemoryMessage[]>([
-    {
-      role: 'assistant',
-      content: `Hi — I'm ${companion.name}. This space is just ours: private, and yours to keep. Tell me anything.`,
-      createdAt: now(),
-      provenance: prov(),
-    },
-  ])
+  const [messages, setMessages] = useState<MemoryMessage[]>(
+    initial?.messages.length
+      ? initial.messages
+      : [
+          {
+            role: 'assistant',
+            content: `Hi — I'm ${companion.name}. This space is just ours: private, and yours to keep. Tell me anything.`,
+            createdAt: now(),
+            provenance: prov(),
+          },
+        ],
+  )
   const [input, setInput] = useState('')
-  const [head, setHead] = useState<string | null>(() => localStorage.getItem(headKey(companion)))
-  const [savedCount, setSavedCount] = useState(0)
+  const [head, setHead] = useState<string | null>(
+    initial?.head ?? localStorage.getItem(headKey(companion)),
+  )
+  const [savedCount, setSavedCount] = useState(initial?.messages.length ?? 0)
   const [saveStatus, setSaveStatus] = useState<Status>('idle')
   const [saveErr, setSaveErr] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
