@@ -24,11 +24,12 @@ import type { KiprExport } from './lib/export'
 import type { Status } from './components/Dot'
 
 // Lazy so the heavy compute SDK (chat) and storage SDK aren't in the first paint.
+const World = lazy(() => import('./screens/World').then((m) => ({ default: m.World })))
 const Chat = lazy(() => import('./screens/Chat').then((m) => ({ default: m.Chat })))
 const Vault = lazy(() => import('./screens/Vault').then((m) => ({ default: m.Vault })))
 const Harness = lazy(() => import('./screens/Harness').then((m) => ({ default: m.Harness })))
 
-type View = 'create' | 'chat' | 'vault'
+type View = 'world' | 'create' | 'chat' | 'vault'
 
 export function App({ privyEnabled }: { privyEnabled: boolean }) {
   const [conn, setConn] = useState<Connection | null>(null)
@@ -49,7 +50,7 @@ export function App({ privyEnabled }: { privyEnabled: boolean }) {
     if (companion || !conn || !bootSession) return
     if (bootSession.ownerAddr === conn.address.toLowerCase()) {
       setCompanion(bootSession)
-      setView('chat')
+      setView('world')
     }
   }, [conn, companion, bootSession])
 
@@ -225,10 +226,13 @@ export function App({ privyEnabled }: { privyEnabled: boolean }) {
               {!showDev && (
                 <nav className="tabs">
                   {companion && (
-                    <button className={view === 'chat' ? 'tab on' : 'tab'} onClick={() => setView('chat')}>Chat</button>
+                    <>
+                      <button className={view === 'world' ? 'tab on' : 'tab'} onClick={() => setView('world')}>World</button>
+                      <button className={view === 'chat' ? 'tab on' : 'tab'} onClick={() => setView('chat')}>Chat</button>
+                    </>
                   )}
                   <button className={view === 'create' ? 'tab on' : 'tab'} onClick={() => setView('create')}>
-                    {companion ? 'Companion' : 'Create'}
+                    {companion ? 'Shape' : 'Create'}
                   </button>
                   <button className={view === 'vault' ? 'tab on' : 'tab'} onClick={() => setView('vault')}>Yours</button>
                 </nav>
@@ -238,6 +242,14 @@ export function App({ privyEnabled }: { privyEnabled: boolean }) {
             <Suspense fallback={<ScreenLoading />}>
               {showDev ? (
                 <Harness conn={conn} walletStatus={walletStatus} walletErr={walletErr} onConnect={onConnect} />
+              ) : companion && view === 'world' && conn ? (
+                <World
+                  ownerKey={ownerKey}
+                  companion={companion}
+                  onTalk={() => setView('chat')}
+                  onShape={() => setView('create')}
+                  onVault={() => setView('vault')}
+                />
               ) : view === 'vault' && conn ? (
                 <Vault conn={conn} ownerKey={ownerKey} companion={companion} onRestore={onRestore} onDelete={onDelete} />
               ) : companion && view === 'chat' && conn ? (
@@ -260,7 +272,7 @@ export function App({ privyEnabled }: { privyEnabled: boolean }) {
                     setCompanion(c)
                     if (firstTime) {
                       setRestoredInitial(null)
-                      setView('chat')
+                      setView('world')
                     }
                   }}
                 />

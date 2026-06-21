@@ -336,6 +336,47 @@ code {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
+/* ── iWORLD ─────────────────────────────────────────────────────────────── */
+.world { display: flex; flex-direction: column; gap: 18px; }
+.world-hero { text-align: center; padding: 6px 6px 0; }
+.world-kicker { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: 4px; background: var(--grad-brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.world-title { margin: 6px 0 4px; font-size: 25px; font-weight: 800; letter-spacing: -0.4px; }
+
+.agent-card {
+  position: relative; overflow: hidden;
+  background: radial-gradient(120% 90% at 50% -10%, rgba(139, 92, 246, 0.18), transparent 60%), var(--glass);
+  border: 1px solid var(--line-2); border-radius: 24px; padding: 26px 20px 20px;
+  backdrop-filter: blur(22px) saturate(140%);
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;
+  box-shadow: 0 24px 70px -34px rgba(0, 0, 0, 0.9);
+}
+.agent-aura { margin-bottom: 4px; }
+.agent-name { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+.agent-vibe { margin: 0; color: var(--muted); font-size: 14px; max-width: 28rem; }
+
+.agent-stats { display: flex; gap: 10px; margin: 14px 0 4px; width: 100%; justify-content: center; }
+.stat { flex: 1; max-width: 110px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: 14px; padding: 12px 8px; display: flex; flex-direction: column; gap: 3px; }
+.stat-n { font-size: 22px; font-weight: 800; background: var(--grad-cyan); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.stat-l { font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.5px; }
+
+.agent-badges { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-top: 8px; }
+.abadge { font-size: 12px; font-weight: 600; color: var(--muted); background: var(--glass); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; }
+
+.agent-values { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.agent-values li { color: var(--muted); font-size: 13.5px; }
+
+.agent-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 18px; width: 100%; }
+.agent-actions button { width: auto; flex: 1; min-width: 120px; }
+.agent-actions .ghost { flex: 0 0 auto; min-width: 0; }
+
+.phase-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.phase { display: flex; align-items: center; gap: 13px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, 0.02); }
+.phase.locked { opacity: 0.7; }
+.phase-ic { font-size: 24px; flex: none; }
+.phase strong { font-size: 14px; }
+.phase p { margin: 2px 0 0; }
+.phase-lock { margin-left: auto; font-size: 13px; opacity: 0.6; }
+
 /* ── chat ───────────────────────────────────────────────────────────────── */
 .chat { display: flex; flex-direction: column; gap: 14px; }
 .chat-head { display: flex; align-items: center; gap: 12px; padding: 2px 4px; }
