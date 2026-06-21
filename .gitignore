@@ -1,0 +1,27 @@
+# secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*.key
+secrets/
+
+# deps / build
+node_modules/
+dist/
+lib.commonjs/
+lib.esm/
+*.tsbuildinfo
+
+# smoke / runtime artifacts
+reports/
+smoke-output/
+*.log
+
+# research corpus is large; keep specs + index, ignore cloned repos & raw dumps
+research/github/
+research/website/0g.ai_homepage_raw.html
+research/docs/llms-full.txt
+
+# os
+.DS_Store
+Thumbs.db

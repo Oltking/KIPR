@@ -1,0 +1,21 @@
+{
+  "name": "kipr",
+  "private": true,
+  "version": "0.0.0",
+  "description": "KIPR — a private, user-owned AI companion on 0G (Zero Gravity)",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "smoke:storage": "pnpm --filter @kipr/og smoke:storage",
+    "smoke:compute": "pnpm --filter @kipr/og smoke:compute",
+    "smoke:p0": "pnpm --filter @kipr/og smoke:p0",
+    "smoke:personality": "pnpm --filter @kipr/core smoke:personality",
+    "smoke:memory": "pnpm --filter @kipr/core smoke:memory",
+    "smoke:cache": "pnpm --filter @kipr/server smoke:cache",
+    "typecheck": "pnpm -r typecheck"
+  }
+}
