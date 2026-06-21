@@ -1,0 +1,31 @@
+{
+  "name": "@kipr/og",
+  "version": "0.0.0",
+  "description": "KIPR's verified 0G (Zero Gravity) integration: chain, storage (encrypted, user-owned), compute (TEE-verified inference)",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "smoke:storage": "tsx src/smoke/storage.ts",
+    "smoke:compute": "tsx src/smoke/compute.ts",
+    "smoke:p0": "tsx src/smoke/p0.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@0gfoundation/0g-compute-ts-sdk": "0.9.0-beta.0",
+    "@0gfoundation/0g-storage-ts-sdk": "^1.2.10",
+    "dotenv": "^16.4.7",
+    "ethers": "6.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
